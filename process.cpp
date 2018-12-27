@@ -15,11 +15,11 @@ int main() {
     ProcessSelectStrategy* SHORT_FIRST = new Strategy_SF();
     ProcessSelectStrategy* HIGHT_RESPONSE_FIRST = new Strategy_HR();
     ProcessSelectStrategy* ROTATE = new Strategy_RR();
-//    ProcessSelectStrategy* BANK_STRATEGY
+    ProcessSelectStrategy* BANK_STRATEGY = new Strategy_BANK();
 
-    ProcessManager::show(5, SHORT_FIRST);
     ProcessManager::show(5, ROTATE);
-    ProcessManager::show(5, HIGHT_RESPONSE_FIRST);
+//    ProcessManager::show(5, ROTATE);
+//    ProcessManager::show(5, HIGHT_RESPONSE_FIRST);
 
     getchar();
     return 0;

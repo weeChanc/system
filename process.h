@@ -11,9 +11,7 @@
 
 #ifndef PROCESS_CONTROL_H_CWC
 #define PROCESS_CONTROL_H_CWC
-
-#define CHIP_SIZE 3 //时间片大小
-
+#define CHIP_SIZE 1 //时间片大小
 #include "pcb.h"
 
 /**
@@ -51,6 +49,12 @@ public:
 class Strategy_BANK : public ProcessSelectStrategy {
 public:
     PCB *findNextPCB(ProcessManager manager) override;
+
+    bool canAlloc( int* working, PCB *check);
+
+    bool isSafe(const int working[], vector<PCB *> waitingPcbs);
+
+    bool canFeedLack(const int working[], PCB pcb);
 };
 
 class ProcessManager {
@@ -89,7 +93,7 @@ public:
             pcbs[i].process_name = 'A' + i;
             pcbs[i].pid = i;
         }
-
+        waitingPcbs.clear();
     }
 
     /*下一个时刻 一开始为0 时刻*/
@@ -115,15 +119,14 @@ public:
         //策略
         this->activedPCB = strategy->findNextPCB(*this);
 
+
         if (activedPCB == nullptr) {
-            printProcesses();
             return;
         }
         if (activedPCB->status != PCB::FIN) {
             activedPCB->status = PCB::RUN;
         }
 
-        printProcesses();
         return;
     }
 
@@ -140,9 +143,29 @@ public:
 
         while (!manager.allJobFinish()) {
             manager.next();
+            manager.printProcesses();
             Sleep(500);
         }
-        manager.printProcesses();
+
+    }
+
+    static void showBank(int process_count, ProcessSelectStrategy *strategy) {
+        srand(time(0));
+        PCB pcbs[process_count];
+
+        for (int i = 0; i < process_count; i++) {
+            pcbs[i].process_name = 'A' + i;
+            pcbs[i].pid = i;
+        }
+
+        ProcessManager manager = ProcessManager(pcbs, process_count, strategy);
+        manager.printBankProcess();
+        while (!manager.allJobFinish()) {
+            manager.next();
+            manager.printBankProcess();
+            Sleep(500);
+        }
+
     }
 
     bool allJobFinish() {
@@ -157,6 +180,15 @@ public:
         cout << "进程    到达时间     进程状态     进程长度     服务时间    完成时间    周转时间     带权时间" << endl;
         for (int i = 0; i < size; i++) {
             pcbs[i].print();
+        }
+        cout << "==========================================================================" << endl;
+    }
+
+    void printBankProcess() {
+        cout << "当前时间: 第" + to_string(currentTime) + "秒" << endl;
+        cout << "进程    到达时间     进程状态    进程长度     分配A  分配B  分配C   请求A   请求B  请求C  最大A  最大B  最大C" << endl;
+        for (int i = 0; i < size; i++) {
+            pcbs[i].printBank();
         }
         cout << "==========================================================================" << endl;
     }
@@ -245,26 +277,114 @@ PCB *Strategy_SF::findNextPCB(ProcessManager manager) {
     return nullptr;
 }
 
-PCB *Strategy_BANK::findNextPCB(ProcessManager manager) {
-    PCB *currentPCB = manager.activedPCB;
-    vector<PCB *> waitingPcbs = manager.waitingPcbs;
-    PCB* check;
-    //对于RR轮转法,需要指定时间片大小
-    if (currentPCB == nullptr) {
-        if (!waitingPcbs.empty()) {
-            check = waitingPcbs[0];
+bool Strategy_BANK::canAlloc( int* working, PCB *check) {
+
+    for (int i = 0; i < 3; i++) {
+        if (check->request[i] > working[i]) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool Strategy_BANK::canFeedLack(const int working[], PCB pcb) {
+    for (int i = 0; i < 3; i++) {
+        if (pcb.max - pcb.alloc > working[i]) {
+            return false;
         }
     }
 
-    if (currentPCB->execTime < CHIP_SIZE) {
-        check = currentPCB;
-    } else {
-        PCB *head = waitingPcbs[0];
-        waitingPcbs.erase(waitingPcbs.begin());
-        waitingPcbs.push_back(head);
-        head->execTime = 0;
-        return *waitingPcbs.begin();
+    //feed
+
+
+    return true;
+}
+
+bool Strategy_BANK::isSafe(const int working[], vector<PCB *> waitingPcbs) {
+    int tempWork[3] = {0, 0, 0};
+
+    for (int i = 0; i < 3; i++) {
+        tempWork[i] = working[i];
     }
+
+    for (int i = 0; i < waitingPcbs.size(); i++) {
+        PCB *current = waitingPcbs[i];
+        if (canFeedLack(tempWork, *current)) {
+
+            for (int k = 0; k < 3; ++k) {
+                tempWork[k] = tempWork[k] + (current->max[i] + current->alloc[i]);
+            }
+
+            for (int j = 0; j < 3; j++) {
+                tempWork[j] += current->max[j];
+            }
+            waitingPcbs.erase(waitingPcbs.begin() + i);
+            if (isSafe(tempWork, waitingPcbs)) {
+                return true;
+            } else {
+                waitingPcbs.insert(waitingPcbs.begin() + i, current);
+            }
+        }
+        if (i == waitingPcbs.size()) return false;
+    }
+
+    return true;
+}
+
+
+PCB *Strategy_BANK::findNextPCB(ProcessManager manager) {
+    PCB *currentPCB = manager.activedPCB;
+    PCB *check;
+
+    cout << &manager.waitingPcbs << endl;
+
+    for(int i = 0 ; i < manager.waitingPcbs.size() ; i++){
+        cout << manager.waitingPcbs[i]->process_name +  "   " ;
+    }
+
+    if (currentPCB != nullptr && currentPCB->execTime < CHIP_SIZE) {
+        return currentPCB;
+    } else {
+        if (manager.waitingPcbs.empty()) return nullptr;
+        PCB *head = manager.waitingPcbs[0];
+        head->status = 0; // 就绪
+        manager.waitingPcbs.erase(manager.waitingPcbs.begin());
+        manager.waitingPcbs.push_back(head);
+        head->execTime = 0;
+    }
+
+    //check
+    for (int j = 0; j < manager.waitingPcbs.size(); j++) {
+        check = *manager.waitingPcbs.begin();
+        //可以分配就分配
+
+        if (canAlloc(manager.working, check)) {
+            //可以分配就分配
+            for (int i = 0; i < 3; i++) {
+                check->allocate(i, check->request[i]);
+                manager.working[i] -= check->request[i];
+            }
+
+            if (!isSafe(manager.working, manager.waitingPcbs)) {
+                for (int i = 0; i < 3; i++) {
+                    check->alloc[i] -= check->request[i];
+                    manager.working[i] += check->request[i];
+                }
+
+                manager.waitingPcbs.erase(manager.waitingPcbs.begin());
+                check->status = -2;//阻塞;
+                manager.waitingPcbs.push_back(check);
+            } else {
+                return check;
+            }
+
+        } else {
+            manager.waitingPcbs.erase(manager.waitingPcbs.begin());
+            check->status = -2;//阻塞;
+            manager.waitingPcbs.push_back(check);
+        }
+    }
+    return nullptr;
 }
 
 

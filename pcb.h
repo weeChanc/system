@@ -18,22 +18,23 @@ using namespace std;
 
 class PCB {
 public:
-    string process_name; //è¿›ç¨‹å
-    int arrive_time; //åˆ°è¾¾æ—¶é—´
-    int serve_time; //å·²è¿è¡Œçš„æ—¶é—´ æœåŠ¡æ—¶é—´
-    int length; //ä¼°è®¡çš„éœ€è¦è¿è¡Œçš„æ—¶é—´
-    int status; // 0å°±ç»ª 1è¿è¡Œ -1 ç»ˆæ­¢
-    int lastExecuteTime = -1; //-1 è¡¨ç¤ºæœªæ‰§è¡Œè¿‡ , å½“status = -1 è¯¥å€¼ä»£è¡¨å®Œæˆæ—¶é—´
-    int execTime = 0; //ä¸€æ¬¡æ—¶é—´ç‰‡ä¸­æ‰§è¡Œæ¬¡æ•°
-    int pid; // è¿›ç¨‹åœ¨ç³»ç»Ÿä¸­çš„ç¼–å·
+    string process_name; //½ø³ÌÃû
+    int arrive_time; //µ½´ïÊ±¼ä
+    int serve_time; //ÒÑÔËĞĞµÄÊ±¼ä ·şÎñÊ±¼ä
+    int length; //¹À¼ÆµÄĞèÒªÔËĞĞµÄÊ±¼ä
+    int status; // 0¾ÍĞ÷ 1ÔËĞĞ -1 ÖÕÖ¹
+    int lastExecuteTime = -1; //-1 ±íÊ¾Î´Ö´ĞĞ¹ı , µ±status = -1 ¸ÃÖµ´ú±íÍê³ÉÊ±¼ä
+    int execTime = 0; //Ò»´ÎÊ±¼äÆ¬ÖĞÖ´ĞĞ´ÎÊı
+    int pid; // ½ø³ÌÔÚÏµÍ³ÖĞµÄ±àºÅ
 
     static const int WAIT = 0;
     static const int RUN = 1;
     static const int FIN = -1;
 
-    int alloc[RES_SIZE];
-    int request[RES_SIZE];
-    int max[RES_SIZE];
+    int alloc[RES_SIZE]; //ÒÑ·ÖÅä
+    int request[RES_SIZE] ;//½ø³Ìµ½´ïÇëÇóµÄ´óĞ¡
+    int max[RES_SIZE] ; //×î´óĞèÇó
+    //lack  max-alloc
 
 public:
 
@@ -44,26 +45,30 @@ public:
         status = 0;
 
         for(int i = 0 ; i < RES_SIZE ; i++){
-            max[i] = rand() % 8;
+            alloc[i] = 0;
+            max[i] = rand() % 10;
             int randAlloc = 0;
-            // éšæœºè¯·æ±‚ä¸€äº›, è¦<=ç¼ºçš„
-            int randReq = rand() % 5;
+            // Ëæ»úÇëÇóÒ»Ğ©, Òª<=È±µÄ
+            // Ëæ»ú³õÊ¼»¯ÒÑ·ÖÅäµÄÒ»Ğ©
+            int randReq = rand() % 10;
             randReq < 0 ? randReq = 0 : randReq > max[i] - randAlloc ? randReq = max[i] - randAlloc : randReq= randReq ;
+            request[i] = randReq;
         }
     }
 
     void allocate(int index, int count) {
-        if(count > request[index]) cout << "åˆ†é…çš„è¶…è¿‡è¯·æ±‚çš„" << endl;
-        if(count + alloc[index] > max[index] ) cout << "åˆ†é…çš„è¶…è¿‡æœ€å¤§çš„æ‰€éœ€çš„" << endl;
+        if(count > request[index]) cout << "·ÖÅäµÄ³¬¹ıÇëÇóµÄ" << endl;
+        if(count + alloc[index] > max[index] ) cout << "·ÖÅäµÄ³¬¹ı×î´óµÄËùĞèµÄ" << endl;
 
-        alloc[index] += count; //åˆ†é…
+        alloc[index] += count; //·ÖÅä
 
-        //æ›´æ”¹ä¸‹æ¬¡è¯·æ±‚çš„æ•°é‡
-        for(int i = 0 ; i < RES_SIZE ; i++){
-            // éšæœºè¯·æ±‚ä¸€äº›, è¦<=ç¼ºçš„
+        //¸ü¸ÄÏÂ´ÎÇëÇóµÄÊıÁ¿
+
+            // Ëæ»úÇëÇóÒ»Ğ©, Òª<=È±µÄ
             int randReq = rand() % 5;
-            randReq < 0 ? randReq = 0 : randReq > max[i] - alloc[i] ? randReq = max[i] - alloc[i] : randReq= randReq ;
-        }
+            randReq < 0 ? randReq = 0 : randReq > max[index] - alloc[index] ? randReq = max[index] - alloc[index] : randReq= randReq ;
+            request[index] = randReq;
+
     }
 
     void print() {
@@ -76,6 +81,16 @@ public:
                pts.c_str());
     }
 
+    void printBank() {
+        int T = lastExecuteTime - arrive_time;
+        string Ts = status == FIN ? to_string(T) : "*";
+        string fs = status == FIN ? to_string(lastExecuteTime) : "*";
+        string pts = status == FIN ? to_string((T + 0.0f) / serve_time) : "*";
+        printf("%2s%12d%12s%7d%12d%7d%7d%7d%7d%7d%7d%7d%7d\r\n",
+               process_name.c_str(), arrive_time, trans(status).c_str(),
+               length,alloc[0],alloc[1],alloc[2],request[0],request[1],request[2],max[0],max[1],max[2]);
+    }
+
 private:
     string trans(int status) {
         switch (status) {
@@ -85,10 +100,12 @@ private:
                 return "RUN";
             case -1:
                 return "FIN";
+            case -2:
+                return "BLOCK";
             default:
                 return "Unknown State";
         }
-        return "æœªçŸ¥çŠ¶æ€";
+        return "Î´Öª×´Ì¬";
     }
 };
 #endif //UNTITLED_PCB_H
