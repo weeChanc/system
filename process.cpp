@@ -17,7 +17,7 @@ int main() {
     ProcessSelectStrategy* ROTATE = new Strategy_RR();
     ProcessSelectStrategy* BANK_STRATEGY = new Strategy_BANK();
 
-    ProcessManager::show(5, ROTATE);
+    ProcessManager::showBank(5, BANK_STRATEGY);
 //    ProcessManager::show(5, ROTATE);
 //    ProcessManager::show(5, HIGHT_RESPONSE_FIRST);
 

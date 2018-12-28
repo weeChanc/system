@@ -86,9 +86,9 @@ public:
         string Ts = status == FIN ? to_string(T) : "*";
         string fs = status == FIN ? to_string(lastExecuteTime) : "*";
         string pts = status == FIN ? to_string((T + 0.0f) / serve_time) : "*";
-        printf("%2s%12d%12s%7d%12d%7d%7d%7d%7d%7d%7d%7d%7d\r\n",
+        printf("%2s%12d%12s%7d%12d%7d%7d%7d%7d%7d%7d%7d%7d%7d\r\n",
                process_name.c_str(), arrive_time, trans(status).c_str(),
-               length,alloc[0],alloc[1],alloc[2],request[0],request[1],request[2],max[0],max[1],max[2]);
+               length,serve_time,alloc[0],alloc[1],alloc[2],request[0],request[1],request[2],max[0],max[1],max[2]);
     }
 
 private:

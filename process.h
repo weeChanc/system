@@ -24,16 +24,16 @@ class ProcessManager;
  */
 class ProcessSelectStrategy {
 public :
-    virtual PCB *findNextPCB(ProcessManager manager) = 0;
+    virtual PCB *findNextPCB(ProcessManager& manager) = 0;
 };
 
 class Strategy_RR : public ProcessSelectStrategy {
 public:
-    PCB *findNextPCB(ProcessManager manager) override;
+    PCB *findNextPCB(ProcessManager& manager) override;
 };
 
 class Strategy_HR : public ProcessSelectStrategy {
-    PCB *findNextPCB(ProcessManager manager) override;
+    PCB *findNextPCB(ProcessManager& manager) override;
     //根据长度排序
 public:
     static bool comp(PCB *a, PCB *b) {
@@ -43,12 +43,12 @@ public:
 
 class Strategy_SF : public ProcessSelectStrategy {
 public:
-    PCB *findNextPCB(ProcessManager manager) override;
+    PCB *findNextPCB(ProcessManager& manager) override;
 };
 
 class Strategy_BANK : public ProcessSelectStrategy {
 public:
-    PCB *findNextPCB(ProcessManager manager) override;
+    PCB *findNextPCB(ProcessManager& manager) override;
 
     bool canAlloc( int* working, PCB *check);
 
@@ -113,6 +113,7 @@ public:
                 activedPCB->status = -1;
                 finishJob(activedPCB);
                 activedPCB = nullptr;
+
             }
         }
 
@@ -159,7 +160,6 @@ public:
         }
 
         ProcessManager manager = ProcessManager(pcbs, process_count, strategy);
-        manager.printBankProcess();
         while (!manager.allJobFinish()) {
             manager.next();
             manager.printBankProcess();
@@ -186,7 +186,7 @@ public:
 
     void printBankProcess() {
         cout << "当前时间: 第" + to_string(currentTime) + "秒" << endl;
-        cout << "进程    到达时间     进程状态    进程长度     分配A  分配B  分配C   请求A   请求B  请求C  最大A  最大B  最大C" << endl;
+        cout << "进程    到达时间     进程状态   进程长度  服务时间   分配A  分配B  分配C   请求A   请求B  请求C  最大A  最大B  最大C" << endl;
         for (int i = 0; i < size; i++) {
             pcbs[i].printBank();
         }
@@ -209,30 +209,33 @@ public:
                 break;
             }
         }
+        for(int i = 0 ; i< 3 ;i++){
+            working[i] += job->alloc[i]; // 归还资源
+        }
     }
 };
 
-PCB *Strategy_RR::findNextPCB(ProcessManager manager) {
+PCB *Strategy_RR::findNextPCB(ProcessManager& manager) {
     PCB *currentPCB = manager.activedPCB;
-    vector<PCB *> waitingPcbs = manager.waitingPcbs;
     //对于RR轮转法,需要指定时间片大小
     if (currentPCB == nullptr) {
-        if (!waitingPcbs.empty()) return waitingPcbs[0];
+        if (!manager.waitingPcbs.empty()) return manager.waitingPcbs[0];
         return nullptr;
     }
 
     if (currentPCB->execTime < CHIP_SIZE) {
         return currentPCB;
     } else {
-        PCB *head = waitingPcbs[0];
-        waitingPcbs.erase(waitingPcbs.begin());
-        waitingPcbs.push_back(head);
+        PCB *head = manager.waitingPcbs[0];
+        manager.waitingPcbs.erase(manager.waitingPcbs.begin());
+        manager.waitingPcbs.push_back(head);
+        head->status = 0;
         head->execTime = 0;
-        return *waitingPcbs.begin();
+        return *manager.waitingPcbs.begin();
     }
 }
 
-PCB *Strategy_HR::findNextPCB(ProcessManager manager) {
+PCB *Strategy_HR::findNextPCB(ProcessManager& manager) {
     //对于高响应比优先算法,要找到最高响应比的进程运行
     //RP = (等待时间+要求服务时间)/要求服务时间
     PCB *currentPCB = manager.activedPCB;
@@ -259,7 +262,7 @@ PCB *Strategy_HR::findNextPCB(ProcessManager manager) {
     return find;
 }
 
-PCB *Strategy_SF::findNextPCB(ProcessManager manager) {
+PCB *Strategy_SF::findNextPCB(ProcessManager& manager) {
     PCB *currentPCB = manager.activedPCB;
     vector<PCB *> waitingPcbs = manager.waitingPcbs;
     //对于短作业优先算法,需要下一个作业就是最短作业,并且是抢占式的
@@ -311,13 +314,15 @@ bool Strategy_BANK::isSafe(const int working[], vector<PCB *> waitingPcbs) {
         PCB *current = waitingPcbs[i];
         if (canFeedLack(tempWork, *current)) {
 
-            for (int k = 0; k < 3; ++k) {
-                tempWork[k] = tempWork[k] + (current->max[i] + current->alloc[i]);
-            }
+//            for (int k = 0; k < 3; ++k) {
+//                tempWork[k] = tempWork[k] + (current->max[i] + current->alloc[i]);
+//            }
 
             for (int j = 0; j < 3; j++) {
-                tempWork[j] += current->max[j];
+                int max =current->alloc[j];
+                tempWork[j] = tempWork[j] + max;
             }
+
             waitingPcbs.erase(waitingPcbs.begin() + i);
             if (isSafe(tempWork, waitingPcbs)) {
                 return true;
@@ -332,14 +337,18 @@ bool Strategy_BANK::isSafe(const int working[], vector<PCB *> waitingPcbs) {
 }
 
 
-PCB *Strategy_BANK::findNextPCB(ProcessManager manager) {
+PCB *Strategy_BANK::findNextPCB(ProcessManager& manager) {
     PCB *currentPCB = manager.activedPCB;
     PCB *check;
 
-    cout << &manager.waitingPcbs << endl;
+    for(int i = 0 ; i < manager.waitingPcbs.size(); i++){
+        cout << manager.waitingPcbs[i]->process_name << "   ";
+    }
 
-    for(int i = 0 ; i < manager.waitingPcbs.size() ; i++){
-        cout << manager.waitingPcbs[i]->process_name +  "   " ;
+    cout << endl;
+
+    for(int i = 0 ; i < 3 ; i++){
+        cout << manager.working[i] << "   ";
     }
 
     if (currentPCB != nullptr && currentPCB->execTime < CHIP_SIZE) {
@@ -361,11 +370,13 @@ PCB *Strategy_BANK::findNextPCB(ProcessManager manager) {
         if (canAlloc(manager.working, check)) {
             //可以分配就分配
             for (int i = 0; i < 3; i++) {
-                check->allocate(i, check->request[i]);
-                manager.working[i] -= check->request[i];
+                int req = check->request[i];
+                check->allocate(i, req);
+                manager.working[i] -= req;
             }
 
             if (!isSafe(manager.working, manager.waitingPcbs)) {
+                cout << "不安全" << endl;
                 for (int i = 0; i < 3; i++) {
                     check->alloc[i] -= check->request[i];
                     manager.working[i] += check->request[i];
