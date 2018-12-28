@@ -11,7 +11,7 @@
 
 #ifndef PROCESS_CONTROL_H_CWC
 #define PROCESS_CONTROL_H_CWC
-#define CHIP_SIZE 1 //时间片大小
+#define CHIP_SIZE 3 //时间片大小
 #include "pcb.h"
 
 /**
@@ -65,11 +65,11 @@ private:
 public :
     PCB *pcbs;
     PCB *activedPCB; //活动的pcb
-    int currentTime = -1; //一开始的时间为0,++操作
+    int currentTime = -1; //当前的时间
     int size; //传入的pcb大小
     //等待队列
     vector<PCB *> waitingPcbs;
-    int working[3] = {10, 15, 12};
+    int working[3] = {10, 15, 12}; //当前可用资源数量
 
 public:
     /**
@@ -96,16 +96,17 @@ public:
         waitingPcbs.clear();
     }
 
-    /*下一个时刻 一开始为0 时刻*/
+
+    /**
+     *  此函数表示进入下一个时刻,执行次数+1,并调度下一个PCB
+     *  一个时刻 一开始为0
+     */
     void next() {
         currentTime++; //执行时间+1
-
-        addToWait();
-
+        addToWait();//在该时刻到达的PCB,加入等待队列
         if (activedPCB != nullptr) {
             //到了下一轮,给之前的PCB加上1的服务时间
             activedPCB->serve_time++;
-
             // 之前的PCB最终执行时间为当前时刻
             activedPCB->lastExecuteTime = currentTime;
             activedPCB->execTime++;
@@ -113,13 +114,11 @@ public:
                 activedPCB->status = -1;
                 finishJob(activedPCB);
                 activedPCB = nullptr;
-
             }
         }
 
         //策略
         this->activedPCB = strategy->findNextPCB(*this);
-
 
         if (activedPCB == nullptr) {
             return;
@@ -314,10 +313,6 @@ bool Strategy_BANK::isSafe(const int working[], vector<PCB *> waitingPcbs) {
         PCB *current = waitingPcbs[i];
         if (canFeedLack(tempWork, *current)) {
 
-//            for (int k = 0; k < 3; ++k) {
-//                tempWork[k] = tempWork[k] + (current->max[i] + current->alloc[i]);
-//            }
-
             for (int j = 0; j < 3; j++) {
                 int max =current->alloc[j];
                 tempWork[j] = tempWork[j] + max;
@@ -341,15 +336,11 @@ PCB *Strategy_BANK::findNextPCB(ProcessManager& manager) {
     PCB *currentPCB = manager.activedPCB;
     PCB *check;
 
+    cout << "QUEUE: ";
     for(int i = 0 ; i < manager.waitingPcbs.size(); i++){
         cout << manager.waitingPcbs[i]->process_name << "   ";
     }
-
     cout << endl;
-
-    for(int i = 0 ; i < 3 ; i++){
-        cout << manager.working[i] << "   ";
-    }
 
     if (currentPCB != nullptr && currentPCB->execTime < CHIP_SIZE) {
         return currentPCB;

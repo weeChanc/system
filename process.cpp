@@ -19,7 +19,7 @@ int main() {
 
     ProcessManager::showBank(5, BANK_STRATEGY);
 //    ProcessManager::show(5, ROTATE);
-//    ProcessManager::show(5, HIGHT_RESPONSE_FIRST);
+//    ProcessManager::show(5, SHORT_FIRST);
 
     getchar();
     return 0;

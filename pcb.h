@@ -22,7 +22,7 @@ public:
     int arrive_time; //到达时间
     int serve_time; //已运行的时间 服务时间
     int length; //估计的需要运行的时间
-    int status; // 0就绪 1运行 -1 终止
+    int status; // 0就绪 1运行 -1 终止 -2阻塞
     int lastExecuteTime = -1; //-1 表示未执行过 , 当status = -1 该值代表完成时间
     int execTime = 0; //一次时间片中执行次数
     int pid; // 进程在系统中的编号
